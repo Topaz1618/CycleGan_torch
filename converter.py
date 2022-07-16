@@ -14,8 +14,6 @@ import torch
 import util
 import network
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath("__file__")))
-sys.path.append(BASE_DIR)
 
 class Myoption():
     def __init__(self):
@@ -57,6 +55,8 @@ class Myoption():
 
 opt = Myoption()
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 ###### Definition of variables ######
 # Networks
@@ -64,12 +64,11 @@ netG_A2B = network.generator(opt.input_ngc, opt.output_ngc, opt.ngf, opt.nb)
 netG_B2A = network.generator(opt.input_ngc, opt.output_ngc, opt.ngf, opt.nb)
 
 
-netG_A2B.cuda()
-netG_B2A.cuda()
+netG_A2B.to(device)
+netG_B2A.to(device)
 
 # Load state dicts
-
-netG_A2B.load_state_dict(torch.load('/mnt/mnist_results/mnist_generatorA_param.pkl'))
+netG_A2B.load_state_dict(torch.load('output/mnist_results/mnist_generatorA_param.pkl'))
 # netG_B2A.load_state_dict(torch.load('/mnt/mnist_results/mnist_generatorB_param.pkl'))
 
 # Set model's test mode
@@ -81,16 +80,21 @@ transform = transforms.Compose([
         transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
 ])
 
-dataset_path = "/mnt/data/mnist"
+dataset_path = "data/mnist"
 test_loader_A = util.data_load(dataset_path, f"{opt.test_subfolder}A", transform, opt.batch_size, shuffle=False)
 
+
 idx = 0
+AtoB_path = "output/mnist_results/test_results/AtoB"
 for realA, _ in test_loader_A:
-    print("A", type(realA), realA.shape)
-    realA = Variable(realA.cuda(), volatile=True)
+    realA = Variable(realA.to(device), volatile=True)
     genB = netG_A2B(realA)
+
+    print("A", type(realA), realA.shape)
     print("B", type(realA), realA.shape)
 
-    path = os.path.join('/mnt/mnist_results/final_res', f"{str(idx)}_output.png")
-    plt.imsave(path, (genB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+    # path = os.path.join('/mnist_results/final_res', f"{str(idx)}_output.png")
+    img_name = os.path.join(AtoB_path, f"{idx}_output.png")
+    plt.imsave(img_name, (genB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+
     idx += 1

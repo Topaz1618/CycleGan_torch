@@ -197,7 +197,7 @@ def imgs_resize(imgs, resize_scale = 286):
         pil_image = toimage(imgs[i].numpy(), mode=None)
         img = cv2.cvtColor(numpy.array(pil_image), cv2.COLOR_RGB2BGR)
         img = cv2.resize(img, [resize_scale, resize_scale])
-        cv2.imwrite("omg.jpg", img)
+        # cv2.imwrite("omg.jpg", img)
         outputs[i] = torch.FloatTensor((img.transpose(2, 0, 1).astype(np.float32).reshape(-1, imgs.size()[1], resize_scale, resize_scale) - 127.5) / 127.5)
 
     return outputs
