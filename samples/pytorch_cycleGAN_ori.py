@@ -195,6 +195,20 @@ train_hist['total_ptime'] = []
 print('training start!')
 start_time = time.time()
 epoch_time = time.time()
+# Test
+# for (realA, _), (realB, _) in zip(train_loader_A, train_loader_B):
+#
+#     if opt.resize_scale:
+#         realA = util.imgs_resize(realA, opt.resize_scale)
+#         print(realA.shape)
+#
+#     if opt.crop:
+#         realA = util.random_crop(realA, opt.input_size)
+#         # print(realA.shape)
+#
+#     if opt.fliplr:
+#         realA = util.random_fliplr(realA)
+#         print(realA.shape)
 
 
 for epoch in range(opt.train_epoch):
@@ -213,11 +227,12 @@ for epoch in range(opt.train_epoch):
         D_A_optimizer.param_groups[0]['lr'] -= opt.lrD / (opt.train_epoch - opt.decay_epoch)
         D_B_optimizer.param_groups[0]['lr'] -= opt.lrD / (opt.train_epoch - opt.decay_epoch)
         G_optimizer.param_groups[0]['lr'] -= opt.lrG / (opt.train_epoch - opt.decay_epoch)
-
-
+#
+#     # print(train_loader_A, train_loader_B)
     for (realA, _), (realB, _) in zip(train_loader_A, train_loader_B):
 
         if opt.resize_scale:
+
             realA = util.imgs_resize(realA, opt.resize_scale)
             realB = util.imgs_resize(realB, opt.resize_scale)
 
@@ -231,8 +246,9 @@ for epoch in range(opt.train_epoch):
 
         realA, realB = Variable(realA.cuda()), Variable(realB.cuda())
 
-
-        # train generator G
+        # print("r", realA.shape, realB.shape)
+#
+#         # train generator G
         G_optimizer.zero_grad()
 
         # generate real A to fake B; D_A(G_A(A))
@@ -243,12 +259,12 @@ for epoch in range(opt.train_epoch):
         # reconstruct fake B to rec A; G_B(G_A(A))
         recA = G_B(fakeB)
         A_cycle_loss = L1_loss(recA, realA) * opt.lambdaA
-
+#
         # generate real B to fake A; D_A(G_B(B))
         fakeA = G_B(realB)
         D_B_result = D_B(fakeA)
         G_B_loss = MSE_loss(D_B_result, Variable(torch.ones(D_B_result.size()).cuda()))
-
+#
         # reconstruct fake A to rec B G_A(G_B(B))
         recB = G_A(fakeA)
         B_cycle_loss = L1_loss(recB, realB) * opt.lambdaB
@@ -306,9 +322,6 @@ for epoch in range(opt.train_epoch):
         print(f"============== Idx:{num_iter} done! Cost time: {time.time() - ts} Timestamp: {ts} ====================")
         ts = time.time()
 
-
-
-    # Logging single epoch info
     epoch_end_time = time.time()
     per_epoch_ptime = epoch_end_time - epoch_start_time
     train_hist['per_epoch_ptimes'].append(per_epoch_ptime)
@@ -318,57 +331,87 @@ for epoch in range(opt.train_epoch):
         torch.mean(torch.FloatTensor(G_B_losses)), torch.mean(torch.FloatTensor(A_cycle_losses)),
         torch.mean(torch.FloatTensor(B_cycle_losses))))
 
-    logger.info(f"[{epoch+1}/{opt.train_epoch}] Cost time: {} ")
+    if (epoch+1) % 10 == 0:
+        # test A to B
+        n = 0
+        test_path_AtoB = os.path.join(f"{opt.dataset}_results", "test_results", "AtoB")
+        for realA, _ in test_loader_A:
+            n += 1
+            path = os.path.join(test_path_AtoB, f"{str(n)}_input.png")
+            # path = opt.dataset + '_results/test_results/AtoB/' + str(n) + '_input.png'
+            plt.imsave(path, (realA[0].numpy().transpose(1, 2, 0) + 1) / 2)
+            realA = Variable(realA.cuda(), volatile=True)
+            genB = G_A(realA)
+            # path = opt.dataset + '_results/test_results/AtoB/' + str(n) + '_output.png'
+            path = os.path.join(test_path_AtoB, f"{str(n)}_output.png")
+            plt.imsave(path, (genB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+            recA = G_B(genB)
+            path = os.path.join(test_path_AtoB, f"{str(n)}_recon.png")
+            plt.imsave(path, (recA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
 
+        # test B to A
+        n = 0
+        test_path_BtoA = os.path.join(f"{opt.dataset}_results", "test_results", "BtoA")
+        for realB, _ in test_loader_B:
+            n += 1
+            path = os.path.join(test_path_BtoA, f"{str(n)}_input.png")
+            # path = opt.dataset + '_results/test_results/BtoA/' + str(n) + '_input.png'
+            plt.imsave(path, (realB[0].numpy().transpose(1, 2, 0) + 1) / 2)
+            realB = Variable(realB.cuda(), volatile=True)
+            genA = G_B(realB)
+            path = os.path.join(test_path_BtoA, f"{str(n)}_output.png")
+            plt.imsave(path, (genA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+            recB = G_A(genA)
+            path = os.path.join(test_path_BtoA, f"{str(n)}_recon.png")
+            plt.imsave(path, (recB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+    else:
+        n = 0
+        train_path_AtoB = os.path.join(f"{opt.dataset}_results", "test_results", "AtoB")
 
-    # Test network training result
-    idxA = 0
-    train_path_AtoB = os.path.join(f"{opt.dataset}_results", "test_results", "AtoB")
-    for realA, _ in train_loader_A:
+        for realA, _ in train_loader_A:
+            n += 1
+            path = os.path.join(train_path_AtoB, f"{str(n)}_input.png")
 
-        if idxA > 9:
-            break
-        path = os.path.join(train_path_AtoB, f"{str(idxA)}_input.png")
-        plt.imsave(path, (realA[0].numpy().transpose(1, 2, 0) + 1) / 2)
-        realA = Variable(realA.cuda(), volatile=True)
-        genB = G_A(realA)
-        path = os.path.join(train_path_AtoB, f"{str(idxA)}_output.png")
-        plt.imsave(path, (genB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
-        recA = G_B(genB)
-        path = os.path.join(train_path_AtoB, f"{str(idxA)}_recon.png")
-        plt.imsave(path, (recA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
-        idxA += 1
+            plt.imsave(path, (realA[0].numpy().transpose(1, 2, 0) + 1) / 2)
+            realA = Variable(realA.cuda(), volatile=True)
+            genB = G_A(realA)
+            path = os.path.join(train_path_AtoB, f"{str(n)}_output.png")
+            plt.imsave(path, (genB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+            recA = G_B(genB)
+            path = os.path.join(train_path_AtoB, f"{str(n)}_recon.png")
+            plt.imsave(path, (recA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+            if n > 9:
+                break
 
-    idxB = 0
-    train_path_BtoA = os.path.join(f"{opt.dataset}_results", "test_results", "BtoA")
-    for realB, _ in train_loader_B:
-        if idxB > 9:
-            break
+        # test B to A
+        n = 0
+        train_path_BtoA = os.path.join(f"{opt.dataset}_results", "test_results", "BtoA")
 
-        path = os.path.join(train_path_BtoA, f"{str(idxB)}_input.png")
-        plt.imsave(path, (realB[0].numpy().transpose(1, 2, 0) + 1) / 2)
-        realB = Variable(realB.cuda(), volatile=True)
-        genA = G_B(realB)
-        path = os.path.join(train_path_BtoA, f"{str(idxB)}_output.png")
-        plt.imsave(path, (genA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
-        recB = G_A(genA)
-        path = os.path.join(train_path_BtoA, f"{str(idxB)}_recon.png")
-        plt.imsave(path, (recB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
-        idxB += 1
+        for realB, _ in train_loader_B:
+            n += 1
+            path = os.path.join(train_path_BtoA, f"{str(n)}_input.png")
+
+            plt.imsave(path, (realB[0].numpy().transpose(1, 2, 0) + 1) / 2)
+            realB = Variable(realB.cuda(), volatile=True)
+            genA = G_B(realB)
+            path = os.path.join(train_path_BtoA, f"{str(n)}_output.png")
+            plt.imsave(path, (genA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+            recB = G_A(genA)
+            path = os.path.join(train_path_BtoA, f"{str(n)}_recon.png")
+            plt.imsave(path, (recB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+            if n > 9:
+                break
 
     print(f"============== Epoch:{epoch} done! Cost time: {time.time() - epoch_time} Timestamp: {epoch_time} ====================\n\n")
     epoch_time = time.time()
 
-
-# Logging tranning info
 end_time = time.time()
 total_ptime = end_time - start_time
 train_hist['total_ptime'].append(total_ptime)
+
 logger.info("Avg one epoch ptime: %.2f, total %d epochs ptime: %.2f" % (torch.mean(torch.FloatTensor(train_hist['per_epoch_ptimes'])), opt.train_epoch, total_ptime))
 logger.info("Training finish!... save training results")
-
-
-# Save Model
+# torch.save(G_A.state_dict(), os.path.join(res_path, f"{model + 'generatorA_param.pkl'}") res_path + )
 torch.save(G_A.state_dict(), os.path.join(res_path, f"{model}generatorA_param.pkl"))
 torch.save(G_B.state_dict(), os.path.join(res_path, f"{model}generatorB_param.pkl"))
 torch.save(D_A.state_dict(), os.path.join(res_path, f"{model}discriminatorA_param.pkl"))
