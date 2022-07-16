@@ -1,10 +1,21 @@
-import os, time, pickle, argparse, network, util, itertools
+import os
+import time
+import pickle
+import argparse
+import itertools
+import matplotlib.pyplot as plt
+
+import network
+import util
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import matplotlib.pyplot as plt
 from torchvision import transforms
 from torch.autograd import Variable
+
+
+from utils.gan_logger import logger
 
 # parser = argparse.ArgumentParser()
 #
@@ -70,6 +81,7 @@ class Myoption():
         self.beta1 = 0.5
         self.beta2 = 0.999
         self.save_root = "results"
+        self.output_path = "output"
 
 
 opt = Myoption()
@@ -86,23 +98,27 @@ opt = Myoption()
 Create path
 """
 
+#
+# USE_CUDA = torch.cuda.is_available()
+# device = torch.device("cuda:0" if USE_CUDA else "cpu")
+# model = torch.nn.DataParallel(model, device_ids=[0,1])#我这里只有两个显卡，主显卡0一定要有，如果想要换成别的显卡为主线卡，可以另外添加一行代码
+# model['rep'].to(device)
 
-USE_CUDA = torch.cuda.is_available()
-device = torch.device("cuda:0" if USE_CUDA else "cpu")
-model = torch.nn.DataParallel(model, device_ids=[0,1])#我这里只有两个显卡，主显卡0一定要有，如果想要换成别的显卡为主线卡，可以另外添加一行代码
-model['rep'].to(device)
-
-
-root = opt.dataset + '_' + opt.save_root + '/' # horse2zebra_results/
+# root = opt.output_path  opt.dataset + '_' + opt.save_root + '/' # horse2zebra_results/
+res_path = os.path.join(opt.output_path, f"{opt.dataset}_{opt.save_root}") # output/horse2zebra_results/
 model = opt.dataset + '_'
-if not os.path.isdir(root):
-    os.mkdir(root)
-if not os.path.isdir(root + 'test_results'):
-    os.mkdir(root + 'test_results')
-if not os.path.isdir(root + 'test_results/AtoB'):
-    os.mkdir(root + 'test_results/AtoB')
-if not os.path.isdir(root + 'test_results/BtoA'):
-    os.mkdir(root + 'test_results/BtoA')
+
+if not os.path.isdir(res_path):
+    os.mkdir(res_path)
+
+if not os.path.isdir(res_path + 'test_results'):
+    os.mkdir(res_path + 'test_results')
+
+if not os.path.isdir(res_path + 'test_results/AtoB'):
+    os.mkdir(res_path + 'test_results/AtoB')
+
+if not os.path.isdir(res_path + 'test_results/BtoA'):
+    os.mkdir(res_path + 'test_results/BtoA')
 
 # data_loader
 transform = transforms.Compose([
@@ -117,10 +133,11 @@ test_loader_A path: data/horse2zebra/testA
 test_loader_B path: data/horse2zebra/testB
 """
 
-train_loader_A = util.data_load('data/' + opt.dataset, opt.train_subfolder + 'A', transform, opt.batch_size, shuffle=True)
-train_loader_B = util.data_load('data/' + opt.dataset, opt.train_subfolder + 'B', transform, opt.batch_size, shuffle=True)
-test_loader_A = util.data_load('data/' + opt.dataset, opt.test_subfolder + 'A', transform, opt.batch_size, shuffle=False)
-test_loader_B = util.data_load('data/' + opt.dataset, opt.test_subfolder + 'B', transform, opt.batch_size, shuffle=False)
+dataset_path = os.path.join("data", opt.dataset)
+train_loader_A = util.data_load(dataset_path, f"{opt.train_subfolder}A", transform, opt.batch_size, shuffle=True)
+train_loader_B = util.data_load(dataset_path, f"{opt.train_subfolder}B", transform, opt.batch_size, shuffle=True)
+test_loader_A = util.data_load(dataset_path, f"{opt.test_subfolder}A", transform, opt.batch_size, shuffle=False)
+test_loader_B = util.data_load(dataset_path, f"{opt.test_subfolder}B", transform, opt.batch_size, shuffle=False)
 
 
 # network
@@ -128,10 +145,12 @@ G_A = network.generator(opt.input_ngc, opt.output_ngc, opt.ngf, opt.nb)
 G_B = network.generator(opt.input_ngc, opt.output_ngc, opt.ngf, opt.nb)
 D_A = network.discriminator(opt.input_ndc, opt.output_ndc, opt.ndf)
 D_B = network.discriminator(opt.input_ndc, opt.output_ndc, opt.ndf)
+
 G_A.weight_init(mean=0.0, std=0.02)
 G_B.weight_init(mean=0.0, std=0.02)
 D_A.weight_init(mean=0.0, std=0.02)
 D_B.weight_init(mean=0.0, std=0.02)
+
 G_A.cuda()
 G_B.cuda()
 D_A.cuda()
@@ -311,69 +330,79 @@ for epoch in range(opt.train_epoch):
     epoch_end_time = time.time()
     per_epoch_ptime = epoch_end_time - epoch_start_time
     train_hist['per_epoch_ptimes'].append(per_epoch_ptime)
-    print('[%d/%d] - ptime: %.2f, loss_D_A: %.3f, loss_D_B: %.3f, loss_G_A: %.3f, loss_G_B: %.3f, loss_A_cycle: %.3f, loss_B_cycle: %.3f' % (
+    logger.info('[%d/%d] - ptime: %.2f, loss_D_A: %.3f, loss_D_B: %.3f, loss_G_A: %.3f, loss_G_B: %.3f, loss_A_cycle: %.3f, loss_B_cycle: %.3f' % (
         (epoch + 1), opt.train_epoch, per_epoch_ptime, torch.mean(torch.FloatTensor(D_A_losses)),
         torch.mean(torch.FloatTensor(D_B_losses)), torch.mean(torch.FloatTensor(G_A_losses)),
         torch.mean(torch.FloatTensor(G_B_losses)), torch.mean(torch.FloatTensor(A_cycle_losses)),
         torch.mean(torch.FloatTensor(B_cycle_losses))))
 
-
     if (epoch+1) % 10 == 0:
         # test A to B
         n = 0
+        test_path_AtoB = os.path.join(f"{opt.dataset}_results", "test_results", "AtoB")
         for realA, _ in test_loader_A:
             n += 1
-            path = opt.dataset + '_results/test_results/AtoB/' + str(n) + '_input.png'
+            path = os.path.join(test_path_AtoB, f"{str(n)}_input.png")
+            # path = opt.dataset + '_results/test_results/AtoB/' + str(n) + '_input.png'
             plt.imsave(path, (realA[0].numpy().transpose(1, 2, 0) + 1) / 2)
             realA = Variable(realA.cuda(), volatile=True)
             genB = G_A(realA)
-            path = opt.dataset + '_results/test_results/AtoB/' + str(n) + '_output.png'
+            # path = opt.dataset + '_results/test_results/AtoB/' + str(n) + '_output.png'
+            path = os.path.join(test_path_AtoB, f"{str(n)}_output.png")
             plt.imsave(path, (genB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
             recA = G_B(genB)
-            path = opt.dataset + '_results/test_results/AtoB/' + str(n) + '_recon.png'
+            path = os.path.join(test_path_AtoB, f"{str(n)}_recon.png")
             plt.imsave(path, (recA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
 
         # test B to A
         n = 0
+        test_path_BtoA = os.path.join(f"{opt.dataset}_results", "test_results", "BtoA")
         for realB, _ in test_loader_B:
             n += 1
-            path = opt.dataset + '_results/test_results/BtoA/' + str(n) + '_input.png'
+            path = os.path.join(test_path_BtoA, f"{str(n)}_input.png")
+            # path = opt.dataset + '_results/test_results/BtoA/' + str(n) + '_input.png'
             plt.imsave(path, (realB[0].numpy().transpose(1, 2, 0) + 1) / 2)
             realB = Variable(realB.cuda(), volatile=True)
             genA = G_B(realB)
-            path = opt.dataset + '_results/test_results/BtoA/' + str(n) + '_output.png'
+            path = os.path.join(test_path_BtoA, f"{str(n)}_output.png")
             plt.imsave(path, (genA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
             recB = G_A(genA)
-            path = opt.dataset + '_results/test_results/BtoA/' + str(n) + '_recon.png'
+            path = os.path.join(test_path_BtoA, f"{str(n)}_recon.png")
             plt.imsave(path, (recB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
     else:
         n = 0
+        train_path_AtoB = os.path.join(f"{opt.dataset}_results", "test_results", "AtoB")
+
         for realA, _ in train_loader_A:
             n += 1
-            path = opt.dataset + '_results/train_results/AtoB/' + str(n) + '_input.png'
+            path = os.path.join(train_path_AtoB, f"{str(n)}_input.png")
+
             plt.imsave(path, (realA[0].numpy().transpose(1, 2, 0) + 1) / 2)
             realA = Variable(realA.cuda(), volatile=True)
             genB = G_A(realA)
-            path = opt.dataset + '_results/train_results/AtoB/' + str(n) + '_output.png'
+            path = os.path.join(train_path_AtoB, f"{str(n)}_output.png")
             plt.imsave(path, (genB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
             recA = G_B(genB)
-            path = opt.dataset + '_results/train_results/AtoB/' + str(n) + '_recon.png'
+            path = os.path.join(train_path_AtoB, f"{str(n)}_recon.png")
             plt.imsave(path, (recA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
             if n > 9:
                 break
 
         # test B to A
         n = 0
+        train_path_BtoA = os.path.join(f"{opt.dataset}_results", "test_results", "BtoA")
+
         for realB, _ in train_loader_B:
             n += 1
-            path = opt.dataset + '_results/train_results/BtoA/' + str(n) + '_input.png'
+            path = os.path.join(train_path_BtoA, f"{str(n)}_input.png")
+
             plt.imsave(path, (realB[0].numpy().transpose(1, 2, 0) + 1) / 2)
             realB = Variable(realB.cuda(), volatile=True)
             genA = G_B(realB)
-            path = opt.dataset + '_results/train_results/BtoA/' + str(n) + '_output.png'
+            path = os.path.join(train_path_BtoA, f"{str(n)}_output.png")
             plt.imsave(path, (genA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
             recB = G_A(genA)
-            path = opt.dataset + '_results/train_results/BtoA/' + str(n) + '_recon.png'
+            path = os.path.join(train_path_BtoA, f"{str(n)}_recon.png")
             plt.imsave(path, (recB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
             if n > 9:
                 break
@@ -385,14 +414,15 @@ end_time = time.time()
 total_ptime = end_time - start_time
 train_hist['total_ptime'].append(total_ptime)
 
-print("Avg one epoch ptime: %.2f, total %d epochs ptime: %.2f" % (torch.mean(torch.FloatTensor(train_hist['per_epoch_ptimes'])), opt.train_epoch, total_ptime))
-print("Training finish!... save training results")
-torch.save(G_A.state_dict(), root + model + 'generatorA_param.pkl')
-torch.save(G_B.state_dict(), root + model + 'generatorB_param.pkl')
-torch.save(D_A.state_dict(), root + model + 'discriminatorA_param.pkl')
-torch.save(D_B.state_dict(), root + model + 'discriminatorB_param.pkl')
-with open(root + model + 'train_hist.pkl', 'wb') as f:
+logger.info("Avg one epoch ptime: %.2f, total %d epochs ptime: %.2f" % (torch.mean(torch.FloatTensor(train_hist['per_epoch_ptimes'])), opt.train_epoch, total_ptime))
+logger.info("Training finish!... save training results")
+# torch.save(G_A.state_dict(), os.path.join(res_path, f"{model + 'generatorA_param.pkl'}") res_path + )
+torch.save(G_A.state_dict(), os.path.join(res_path, f"{model}generatorA_param.pkl"))
+torch.save(G_B.state_dict(), os.path.join(res_path, f"{model}generatorB_param.pkl"))
+torch.save(D_A.state_dict(), os.path.join(res_path, f"{model}discriminatorA_param.pkl"))
+torch.save(D_B.state_dict(), os.path.join(res_path, f"{model}discriminatorB_param.pkl"))
+
+with open(os.path.join(res_path, f"{model}train_hist.pkl"), 'wb') as f:
     pickle.dump(train_hist, f)
 
-util.show_train_hist(train_hist, save=True, path=root + model + 'train_hist.png')
-#
+util.show_train_hist(train_hist, save=True, path=os.path.join(res_path, f"{model}train_hist.png"))

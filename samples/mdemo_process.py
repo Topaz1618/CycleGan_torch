@@ -6,8 +6,8 @@ import cv2
 import numpy as np
 from area import polygon_area
 
-path_to_frozen_inference_graph = 'data/frozen_inference_graph_coco.pb'
-path_coco_model = 'data/mask_rcnn_inception_v2_coco_2018_01_28.pbtxt'
+path_to_frozen_inference_graph = '../data/frozen_inference_graph_coco.pb'
+path_coco_model = '../data/mask_rcnn_inception_v2_coco_2018_01_28.pbtxt'
 
 net = cv2.dnn.readNetFromTensorflow(path_to_frozen_inference_graph, path_coco_model)
 colors = np.random.randint(125, 255, (80, 3))
@@ -26,7 +26,7 @@ boxes, masks = net.forward(["detection_out_final", "detection_masks"])
 detection_count = boxes.shape[2]
 
 
-LABELS = open("data/object_detection_classes_coco.txt").read().strip().split("\n")
+LABELS = open("../data/object_detection_classes_coco.txt").read().strip().split("\n")
 
 for i in range(detection_count):
     box = boxes[0, 0, i]
