@@ -214,9 +214,8 @@ for epoch in range(opt.train_epoch):
         D_B_optimizer.param_groups[0]['lr'] -= opt.lrD / (opt.train_epoch - opt.decay_epoch)
         G_optimizer.param_groups[0]['lr'] -= opt.lrG / (opt.train_epoch - opt.decay_epoch)
 
-
+    # Training
     for (realA, _), (realB, _) in zip(train_loader_A, train_loader_B):
-
         if opt.resize_scale:
             realA = util.imgs_resize(realA, opt.resize_scale)
             realB = util.imgs_resize(realB, opt.resize_scale)
@@ -230,7 +229,6 @@ for epoch in range(opt.train_epoch):
             realB = util.random_fliplr(realB)
 
         realA, realB = Variable(realA.cuda()), Variable(realB.cuda())
-
 
         # train generator G
         G_optimizer.zero_grad()
@@ -302,24 +300,17 @@ for epoch in range(opt.train_epoch):
         D_B_losses.append(D_B_loss.item())
 
         num_iter += 1
-
         print(f"============== Idx:{num_iter} done! Cost time: {time.time() - ts} Timestamp: {ts} ====================")
         ts = time.time()
-
-
 
     # Logging single epoch info
     epoch_end_time = time.time()
     per_epoch_ptime = epoch_end_time - epoch_start_time
     train_hist['per_epoch_ptimes'].append(per_epoch_ptime)
-    logger.info('[%d/%d] - ptime: %.2f, loss_D_A: %.3f, loss_D_B: %.3f, loss_G_A: %.3f, loss_G_B: %.3f, loss_A_cycle: %.3f, loss_B_cycle: %.3f' % (
-        (epoch + 1), opt.train_epoch, per_epoch_ptime, torch.mean(torch.FloatTensor(D_A_losses)),
-        torch.mean(torch.FloatTensor(D_B_losses)), torch.mean(torch.FloatTensor(G_A_losses)),
-        torch.mean(torch.FloatTensor(G_B_losses)), torch.mean(torch.FloatTensor(A_cycle_losses)),
-        torch.mean(torch.FloatTensor(B_cycle_losses))))
-
-    logger.info(f"[{epoch+1}/{opt.train_epoch}] Cost time: {} ")
-
+    logger.info(f"[{epoch+1}/{opt.train_epoch}] Cost time: {round(per_epoch_ptime, 2)}"
+                f"loss_D_A: {round(torch.mean(torch.FloatTensor(D_A_losses)), 3)} loss_D_B: {round(torch.mean(torch.FloatTensor(D_B_losses)), 2)}"
+                f"loss_G_A: {round(torch.mean(torch.FloatTensor(G_A_losses)), 3)} loss_G_B: {round(torch.mean(torch.FloatTensor(G_B_losses)), 3)}"
+                f"loss_A_cycle: {round(torch.mean(torch.FloatTensor(A_cycle_losses)), 3)} loss_B_cycle: {round(torch.mean(torch.FloatTensor(B_cycle_losses)), 3)}")
 
     # Test network training result
     idxA = 0
