@@ -1,8 +1,9 @@
-#!/usr/bin/python3
-
 import argparse
 import sys
 import os
+import matplotlib.pyplot as plt
+import imageio
+
 
 import torchvision.transforms as transforms
 from torchvision.utils import save_image
@@ -10,77 +11,86 @@ from torch.utils.data import DataLoader
 from torch.autograd import Variable
 import torch
 
-from models import Generator
-from datasets import ImageDataset
+import util
+import network
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--batchSize', type=int, default=1, help='size of the batches')
-parser.add_argument('--dataroot', type=str, default='datasets/horse2zebra/', help='root directory of the dataset')
-parser.add_argument('--input_nc', type=int, default=3, help='number of channels of input data')
-parser.add_argument('--output_nc', type=int, default=3, help='number of channels of output data')
-parser.add_argument('--size', type=int, default=256, help='size of the data (squared assumed)')
-parser.add_argument('--cuda', action='store_true', help='use GPU computation')
-parser.add_argument('--n_cpu', type=int, default=8, help='number of cpu threads to use during batch generation')
-parser.add_argument('--generator_A2B', type=str, default='output/netG_A2B.pth', help='A2B generator checkpoint file')
-parser.add_argument('--generator_B2A', type=str, default='output/netG_B2A.pth', help='B2A generator checkpoint file')
-opt = parser.parse_args()
-print(opt)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath("__file__")))
+sys.path.append(BASE_DIR)
 
-if torch.cuda.is_available() and not opt.cuda:
-    print("WARNING: You have a CUDA device, so you should probably run with --cuda")
+class Myoption():
+    def __init__(self):
+        # self.dataset = "horse2zebra"
+        self.dataset = "mnist"
+        self.train_subfolder = "train"
+        self.test_subfolder = "test"
+        self.input_ngc = 3
+        self.output_ngc = 3
+        self.input_ndc = 3
+        self.output_ndc = 1
+        self.batch_size = 32
+        self.ngf = 32
+        self.ndf = 64
+        self.nb = 9
+        # hz
+        # self.input_size = 256
+        # self.resize_scale = 286
+        # self.train_epoch = 200
+        # self.decay_epoch = 100
+
+        # mnist
+        self.input_size = 28
+        self.resize_scale = 32
+        self.train_epoch = 200
+        self.decay_epoch = 120
+
+        self.crop = True
+        self.fliplr = True
+        self.lrD = 0.0002
+        self.lrG = 0.0002
+        self.lambdaA = 10
+        self.lambdaB = 10
+        self.beta1 = 0.5
+        self.beta2 = 0.999
+        self.save_root = "results"
+        self.output_path = "output"
+
+
+opt = Myoption()
 
 
 ###### Definition of variables ######
 # Networks
-netG_A2B = Generator(opt.input_nc, opt.output_nc)
-netG_B2A = Generator(opt.output_nc, opt.input_nc)
+netG_A2B = network.generator(opt.input_ngc, opt.output_ngc, opt.ngf, opt.nb)
+netG_B2A = network.generator(opt.input_ngc, opt.output_ngc, opt.ngf, opt.nb)
 
-if opt.cuda:
-    netG_A2B.cuda()
-    netG_B2A.cuda()
+
+netG_A2B.cuda()
+netG_B2A.cuda()
 
 # Load state dicts
-netG_A2B.load_state_dict(torch.load(opt.generator_A2B))
-netG_B2A.load_state_dict(torch.load(opt.generator_B2A))
+
+netG_A2B.load_state_dict(torch.load('/mnt/mnist_results/mnist_generatorA_param.pkl'))
+# netG_B2A.load_state_dict(torch.load('/mnt/mnist_results/mnist_generatorB_param.pkl'))
 
 # Set model's test mode
 netG_A2B.eval()
-netG_B2A.eval()
+# netG_B2A.eval()
 
-# Inputs & targets memory allocation
-Tensor = torch.cuda.FloatTensor if opt.cuda else torch.Tensor
-input_A = Tensor(opt.batchSize, opt.input_nc, opt.size, opt.size)
-input_B = Tensor(opt.batchSize, opt.output_nc, opt.size, opt.size)
+transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+])
 
-# Dataset loader
-transforms_ = [transforms.ToTensor(),
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-dataloader = DataLoader(ImageDataset(opt.dataroot, transforms_=transforms_, mode='test'),
-                        batch_size=opt.batchSize, shuffle=False, num_workers=opt.n_cpu)
-###################################
+dataset_path = "/mnt/data/mnist"
+test_loader_A = util.data_load(dataset_path, f"{opt.test_subfolder}A", transform, opt.batch_size, shuffle=False)
 
-###### Testing ######
+idx = 0
+for realA, _ in test_loader_A:
+    print("A", type(realA), realA.shape)
+    realA = Variable(realA.cuda(), volatile=True)
+    genB = netG_A2B(realA)
+    print("B", type(realA), realA.shape)
 
-# Create output dirs if they don't exist
-if not os.path.exists('output/A'):
-    os.makedirs('output/A')
-if not os.path.exists('output/B'):
-    os.makedirs('output/B')
-
-for i, batch in enumerate(dataloader):
-    # Set model input
-    real_A = Variable(input_A.copy_(batch['A']))
-    real_B = Variable(input_B.copy_(batch['B']))
-
-    # Generate output
-    fake_B = 0.5*(netG_A2B(real_A).data + 1.0)
-    fake_A = 0.5*(netG_B2A(real_B).data + 1.0)
-
-    # Save image files
-    save_image(fake_A, 'output/A/%04d.png' % (i+1))
-    save_image(fake_B, 'output/B/%04d.png' % (i+1))
-
-    sys.stdout.write('\rGenerated images %04d of %04d' % (i+1, len(dataloader)))
-
-sys.stdout.write('\n')
-###################################
+    path = os.path.join('/mnt/mnist_results/final_res', f"{str(idx)}_output.png")
+    plt.imsave(path, (genB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+    idx += 1

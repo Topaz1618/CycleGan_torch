@@ -5,9 +5,6 @@ import argparse
 import itertools
 import matplotlib.pyplot as plt
 
-import network
-import util
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -15,6 +12,8 @@ from torchvision import transforms
 from torch.autograd import Variable
 
 
+import network
+import util
 from utils.gan_logger import logger
 
 # parser = argparse.ArgumentParser()
@@ -213,7 +212,6 @@ epoch_time = time.time()
 
 
 for epoch in range(opt.train_epoch):
-# for epoch in range(10):
     D_A_losses = []
     D_B_losses = []
     G_A_losses = []
@@ -256,7 +254,6 @@ for epoch in range(opt.train_epoch):
         # generate real A to fake B; D_A(G_A(A))
         fakeB = G_A(realA)
         D_A_result = D_A(fakeB)
-        # print(f"Dloss {D_A_result}, {Variable(torch.ones(D_A_result.size()).cuda())}")
         G_A_loss = MSE_loss(D_A_result, Variable(torch.ones(D_A_result.size()).cuda()))
 
         # reconstruct fake B to rec A; G_B(G_A(A))
@@ -270,9 +267,7 @@ for epoch in range(opt.train_epoch):
 #
         # reconstruct fake A to rec B G_A(G_B(B))
         recB = G_A(fakeA)
-        # plt.imsave("1.png", (recB.cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
         B_cycle_loss = L1_loss(recB, realB) * opt.lambdaB
-
         G_loss = G_A_loss + G_B_loss + A_cycle_loss + B_cycle_loss
         G_loss.backward()
         G_optimizer.step()
