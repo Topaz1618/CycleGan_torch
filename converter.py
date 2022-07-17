@@ -17,8 +17,8 @@ import network
 
 class Myoption():
     def __init__(self):
-        # self.dataset = "horse2zebra"
-        self.dataset = "mnist"
+        self.dataset = "horse2zebra"
+        # self.dataset = "mnist"
         self.train_subfolder = "train"
         self.test_subfolder = "test"
         self.input_ngc = 3
@@ -68,33 +68,50 @@ netG_A2B.to(device)
 netG_B2A.to(device)
 
 # Load state dicts
-netG_A2B.load_state_dict(torch.load('output/mnist_results/mnist_generatorA_param.pkl'))
-# netG_B2A.load_state_dict(torch.load('/mnt/mnist_results/mnist_generatorB_param.pkl'))
+netG_A2B.load_state_dict(torch.load('output/horse2zebra_results/horse2zebra_generatorB_param980.pkl'))
+netG_B2A.load_state_dict(torch.load('output/horse2zebra_results/horse2zebra_generatorB_param980.pkl'))
 
 # Set model's test mode
 netG_A2B.eval()
-# netG_B2A.eval()
+netG_B2A.eval()
 
 transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
 ])
 
-dataset_path = "data/mnist"
+dataset_path = os.path.join("data", opt.dataset)
 test_loader_A = util.data_load(dataset_path, f"{opt.test_subfolder}A", transform, opt.batch_size, shuffle=False)
+test_loader_B = util.data_load(dataset_path, f"{opt.test_subfolder}B", transform, opt.batch_size, shuffle=False)
 
 
+AtoB_path = f"output/{opt.dataset}_results/test_results/AtoB"
+
+# idx = 0
+# for realA, _ in test_loader_A:
+#     realA = Variable(realA.to(device), volatile=True)
+#     genB = netG_A2B(realA)
+
+#     print("A", type(realA), realA.shape)
+#     print("B", type(realA), realA.shape)
+
+#     # path = os.path.join('/mnist_results/final_res', f"{str(idx)}_output.png")
+#     img_name = os.path.join(AtoB_path, f"{idx}_output.png")
+#     plt.imsave(img_name, (genB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+
+#     idx += 1
+
+BtoA_path = f"output/{opt.dataset}_results/test_results/BtoA"
 idx = 0
-AtoB_path = "output/mnist_results/test_results/AtoB"
-for realA, _ in test_loader_A:
-    realA = Variable(realA.to(device), volatile=True)
-    genB = netG_A2B(realA)
+for realB, _ in test_loader_B:
+    realB = Variable(realB.to(device), volatile=True)
+    genA = netG_B2A(realB)
 
-    print("A", type(realA), realA.shape)
-    print("B", type(realA), realA.shape)
+    print("A", type(realB), realB.shape)
+    print("B", type(genA), genA.shape)
 
     # path = os.path.join('/mnist_results/final_res', f"{str(idx)}_output.png")
-    img_name = os.path.join(AtoB_path, f"{idx}_output.png")
-    plt.imsave(img_name, (genB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+    img_name = os.path.join(BtoA_path, f"{idx}_output.png")
+    plt.imsave(img_name, (genA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
 
     idx += 1

@@ -278,43 +278,55 @@ for epoch in range(opt.train_epoch):
 
     # Test network training result
     idxA = 0
-    train_path_AtoB = os.path.join(res_path, "test_results", "AtoB")
-    for realA, _ in train_loader_A:
+    train_path_AtoB = os.path.join(res_path, "train_results", "AtoB")
+    if epoch % 20 == 0:
+        for realA, _ in train_loader_A:
+            if idxA > 1:
+                break
+            path = os.path.join(train_path_AtoB, f"{epoch}_{idxA}_input.png")
+            plt.imsave(path, (realA[0].numpy().transpose(1, 2, 0) + 1) / 2)
+            realA = Variable(realA.to(device), volatile=True)
+            genB = G_A(realA)
+            path = os.path.join(train_path_AtoB, f"{epoch}_{idxA}_output.png")
+            plt.imsave(path, (genB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+            recA = G_B(genB)
+            path = os.path.join(train_path_AtoB, f"{epoch}_{idxA}_recon.png")
+            plt.imsave(path, (recA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+            idxA += 1
 
-        if idxA > 9:
-            break
-        path = os.path.join(train_path_AtoB, f"{epoch}_{idxA}_input.png")
-        plt.imsave(path, (realA[0].numpy().transpose(1, 2, 0) + 1) / 2)
-        realA = Variable(realA.to(device), volatile=True)
-        genB = G_A(realA)
-        path = os.path.join(train_path_AtoB, f"{epoch}_{idxA}_output.png")
-        plt.imsave(path, (genB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
-        recA = G_B(genB)
-        path = os.path.join(train_path_AtoB, f"{epoch}_{idxA}_recon.png")
-        plt.imsave(path, (recA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
-        idxA += 1
+        idxB = 0
+        train_path_BtoA = os.path.join(res_path, "train_results", "BtoA")
+        for realB, _ in train_loader_B:
+            if idxB > 1:
+                break
 
-    idxB = 0
-    train_path_BtoA = os.path.join(res_path, "test_results", "BtoA")
-    for realB, _ in train_loader_B:
-        if idxB > 9:
-            break
-
-        path = os.path.join(train_path_BtoA, f"{epoch}_{idxB}_input.png")
-        plt.imsave(path, (realB[0].numpy().transpose(1, 2, 0) + 1) / 2)
-        realB = Variable(realB.to(device), volatile=True)
-        genA = G_B(realB)
-        path = os.path.join(train_path_BtoA, f"{epoch}_{idxB}_output.png")
-        plt.imsave(path, (genA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
-        recB = G_A(genA)
-        path = os.path.join(train_path_BtoA, f"{epoch}_{idxB}_recon.png")
-        plt.imsave(path, (recB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
-        idxB += 1
+            path = os.path.join(train_path_BtoA, f"{epoch}_{idxB}_input.png")
+            plt.imsave(path, (realB[0].numpy().transpose(1, 2, 0) + 1) / 2)
+            realB = Variable(realB.to(device), volatile=True)
+            genA = G_B(realB)
+            path = os.path.join(train_path_BtoA, f"{epoch}_{idxB}_output.png")
+            plt.imsave(path, (genA[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+            recB = G_A(genA)
+            path = os.path.join(train_path_BtoA, f"{epoch}_{idxB}_recon.png")
+            plt.imsave(path, (recB[0].cpu().data.numpy().transpose(1, 2, 0) + 1) / 2)
+            idxB += 1
 
     print(f"============== Epoch:{epoch} done! Cost time: {time.time() - epoch_time} Timestamp: {epoch_time} ====================\n\n")
     epoch_time = time.time()
 
-    if epoch % 10 == 0:
+    if epoch % 20 == 0:
+        #         G_A_state = {'model': G_A.state_dict(), 'optimizer': G_optimizer.state_dict(), 'epoch': epoch}
+        #         torch.save(G_A_state, os.path.join(res_path, f"{model}generatorA_param{epoch}.pkl"))
+
+        #         G_B_state = {'model': G_B.state_dict(), 'optimizer': G_optimizer.state_dict(), 'epoch': epoch}
+        #         torch.save(G_B_state, os.path.join(res_path, f"{model}generatorB_param{epoch}.pkl"))
+
+        #         D_A_state = {'model': D_A.state_dict(), 'optimizer': D_A_optimizer.state_dict(), 'epoch': epoch}
+        #         torch.save(D_A_state, os.path.join(res_path, f"{model}discriminatorA_param{epoch}.pkl"))
+
+        #         D_B_state = {'model': D_B.state_dict(), 'optimizer': D_B_optimizer.state_dict(), 'epoch': epoch}
+        #         torch.save(D_B_state, os.path.join(res_path, f"{model}discriminatorB_param{epoch}.pkl"))
+
         torch.save(G_A.state_dict(), os.path.join(res_path, f"{model}generatorA_param{epoch}.pkl"))
         torch.save(G_B.state_dict(), os.path.join(res_path, f"{model}generatorB_param{epoch}.pkl"))
         torch.save(D_A.state_dict(), os.path.join(res_path, f"{model}discriminatorA_param{epoch}.pkl"))

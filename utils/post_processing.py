@@ -76,6 +76,7 @@ if __name__ == "__main__":
     res_path = os.path.join("output", f"{dataset}_results")
     print(res_path, input_path)
 
+
     for i in range(1, 6):
 
         img_name = os.path.join(BASE_DIR, input_path, f"{i}_input.png")
