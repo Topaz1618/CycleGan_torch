@@ -72,15 +72,20 @@ def get_mask(img_name):
 if __name__ == "__main__":
     dataset = "horse2zebra"
     # dataset = "mnist"
-    input_path = os.path.join("data", dataset, "testA")
+    # input_path = os.path.join("data", dataset, "testA")
+    input_path = "/Users/topaz/Projects/py_cyclegan/tests/data/960"
     res_path = os.path.join("output", f"{dataset}_results")
     print(res_path, input_path)
+    file_length = int(len(os.listdir(input_path))/2)
 
+    for i in range(file_length):
 
-    for i in range(1, 6):
+        # img_name = os.path.join(BASE_DIR, input_path, f"{i}_input.png")
+        # fake_name = os.path.join(BASE_DIR, input_path, f"{i}_output.png")
 
-        img_name = os.path.join(BASE_DIR, input_path, f"{i}_input.png")
-        fake_name = os.path.join(BASE_DIR, input_path, f"{i}_output.png")
+        img_name = os.path.join(input_path, f"{i}_input.png")
+        fake_name = os.path.join(input_path, f"{i}_output.png")
+
         print(img_name, fake_name)
         # img_name = os.path.join(input_path, f"{dataset}_{i}.png")
         # fake_name = os.path.join(res_path, f"{dataset}_{i}.png")
@@ -89,6 +94,9 @@ if __name__ == "__main__":
 
         real_img = cv2.imread(img_name)
         fake_img = cv2.imread(fake_name)
+
+        if real_img is None or fake_img is None:
+            continue
 
         # cv2.imshow("Results", real_img)
         # cv2.imshow("Results", fake_img)

@@ -55,7 +55,6 @@ def show_train_hist(hist, show = False, save = False, path = 'Train_hist.png'):
     y5 = hist['A_cycle_losses']
     y6 = hist['B_cycle_losses']
 
-
     plt.plot(x, y1, label='D_A_loss')
     plt.plot(x, y2, label='D_B_loss')
     plt.plot(x, y3, label='G_A_loss')
