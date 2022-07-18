@@ -66,3 +66,17 @@ scp -P 27330 util.py root@hz-t3.matpool.com:/mnt
     - 使用预训练模型
     - 使用self attention
     - 加入边缘平滑
+
+
+# Todo
+[*] 描述数据集，训练图片，测试图片, epoch, 环境
+[*] 描述网络设计，输入是啥，输出是啥，激活函数，引入了 resnet 模块
+[*] 描述 self attenation 实现
+[*] 描述语义分割通过什么实现的
+[*] 效果对比
+[*]增加语义分割前后效果
+[*]增加 self attenation, 不同轮模型效果的对比
+
+
+
+
